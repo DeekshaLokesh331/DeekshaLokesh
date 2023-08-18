@@ -17,7 +17,8 @@ Welcome to the "Breast Cancer Diagnosis and Survival Prediction" repository. Thi
 11. [Dependencies](#dependencies)
 12. [Contributing](#contributing)
 13. [Acknowledgments](#acknowledgments)
-14. [License](#license)
+14. [References](#references)
+15. [License](#license)
 
 ## 1. Introduction
 
@@ -29,16 +30,24 @@ Our goal is to utilize machine learning models to predict breast cancer diagnosi
 
 - **Dataset 2: Breast Cancer Survival Prediction using Patient Data**
 
-   Centered on predicting post-surgery survival, this dataset employs machine learning techniques, including the Random Survival Forest. Patient characteristics such as age, gender, biomarkers, tumor stage, histology, and receptor statuses are utilized. The resulting survival prediction model stratifies patients based on predicted survival probabilities, facilitating tailored treatment planning and interventions.
+   Centered on predicting post-surgery survival, this dataset employs machine learning techniques, including the Random Survival Forest. Patient characteristics such as age, gender, biomarkers, tumor stage, histology, and receptor status are utilized. The resulting survival prediction model stratifies patients based on predicted survival probabilities, facilitating tailored treatment planning and interventions.
 
 ## 2. Code Description
 
 ### Data Preprocessing
 
-Our code initiates with data preprocessing steps, standardizing numeric features and transforming categorical features into binary indicators using the `model1_par` and `model2_par` functions. After synthesizing data to balance the data and not get influenced by benign cases, the data is prepared for further analysis.
+1. Data preprocessing: Load and preprocess the breast cancer dataset, which includes handling missing values and duplicates in the dataset.
+2. Handling Outliers and Visualization: Summary statistics of the data and handling outliers by replacing them with upper and lower bounds found through IQR
+3. Data balancing: Use SMOTE (Synthetic Minority Over-Sampling Technique) to balance the class distribution of the target variable.
+4. Standard Normalization of Data: Get all the data points to one measurable scale so that the model doesn't get influenced by high variance.
 
-![Data Preprocessing](/Breast%20cancer%202/Final%20BC/image2.png)
-Figure 1:Balance Dataset 
+Overall, our code initiates with data preprocessing steps, and standardizing numeric features. Then we synthesize the data to balance the data and not get influenced by Benign cases, and the data is prepared for further analysis.
+
+![Data Preprocessing](https://github.com/DeekshaLokesh331/DeekshaLokesh/blob/main/image1.png)
+Figure 1:Balanced Dataset 
+
+![Data Preprocessing](https://github.com/DeekshaLokesh331/DeekshaLokesh/blob/main/image4.png)
+Figure 2: Types of Surgeries Performed on Patients
 
 ### 3. Model Training and Evaluation
 
@@ -55,19 +64,21 @@ For both diagnosis and survival prediction, optimal hyperparameters are determin
 
 To aid comparison, F1 scores among various models (Random Forest, SVM, Logistic Regression, and Decision Tree) are visualized through a side-by-side bar plot.
 
-![Model Comparison](/Breast%20cancer%202/Final%20BC/image2.png)
-Figure 2: F1 score comparison for all the models 
+![Model Comparison](https://github.com/DeekshaLokesh331/DeekshaLokesh/blob/main/image3.png)
+Figure 3: F1 score comparison for all the models 
 
 ### 5. Final Model Tuning and Prediction
 
 Following hyperparameter identification, final models are trained and tested using these parameters. Predictions are then generated on test data, accompanied by actual vs. predicted counts and a confusion matrix for model assessment.
 
-![Final Model Tuning and Prediction](/Breast%20cancer%202/Final%20BC/image3.png)
-Figure 3: Model metric for Diagnosis after tuning
+![Final Model Tuning and Prediction](https://github.com/DeekshaLokesh331/DeekshaLokesh/blob/main/image2.png)
+Figure 4: Model metric for Diagnosis after tuning
   
 ### 6. Prediction Sample
 
 Our code provides diagnosis and survival predictions (`pred1` and `pred2`). Diagnosis prediction prompts further analysis or surgery recommendations, while survival prediction estimates "Alive" or "Dead" status post-surgery.
+![Prediction Sample](https://github.com/DeekshaLokesh331/DeekshaLokesh/blob/main/image5.jpg)
+Figure 5: Sample prediction based on the provided input data
 
 ## 8. Results
 
@@ -83,10 +94,9 @@ To utilize this code, follow these steps:
 
 1. Ensure R is installed on your machine.
 2. Clone this repository to your local environment.
-3. Install the `DMwr` package using this URL: [DMwR Package](https://cran.r-project.org/src/contrib/Archive/DMwR/DMwR_0.4.1.tar.gz) for data synthesis.
-4. Modify data paths (`breast-cancer.csv` and `BRCV.csv`) in your code.
-5. Verify that the `model1_par` and `model2_par` functions are compatible with your data and domain.
-6. Execute the R script containing the code.
+3. Download and Install the `DMwr` package using this URL: [DMwR Package](https://cran.r-project.org/src/contrib/Archive/DMwR/DMwR_0.4.1.tar.gz) for data synthesis.
+4. Modify data paths (`breast-cancer.csv` and `BRCV.csv`) in your code if necessary to load the data.
+5. Execute the R script containing the code.
 
 ## 10. Requirements
 
@@ -112,6 +122,22 @@ Contributions to this project are encouraged. Feel free to fork the repository a
 
 This project is developed for educational purposes and is not intended to replace medical advice. Model accuracy relies on data quality and selected features. Always consult medical professionals for precise diagnosis and treatment decisions. Your contributions to this project further advance our understanding of breast cancer prediction and survival.
 
-## 14. License
+## 14. References
 
-The MIT License (MIT) 2023 - Deeksha Lokesh and Parinitha Kiran.
+### Breast Cancer Diagnosis:
+
+1. S. Esteva et al., "Dermatologist-level classification of skin cancer with deep neural networks," Nature, 2017. (While this paper focuses on skin cancer, it's a landmark example of using deep learning for medical image classification and can be analogous to breast cancer diagnosis.)
+
+2. L. Hou et al., "Patch-based Convolutional Neural Network for Whole Slide Tissue Image Classification," in IEEE Journal of Biomedical and Health Informatics, 2020.
+
+### Breast Cancer Survival Prediction:
+
+1. M. Fornaciari et al., "Machine Learning for Predicting the Outcome of Patients with Breast Cancer: A Review," Frontiers in Oncology, 2019.
+
+2. S. Li et al., "Predicting breast cancer survival using deep learning techniques," in Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) Workshops, 2019.
+
+3. Y. Liu et al., "A novel machine learning approach to predict postoperative survival of cancer patients," Sci Rep, 2017.
+
+## 15. License
+
+The MIT License (MIT) 2023 - Parinitha Kiran and Deeksha Lokesh.
