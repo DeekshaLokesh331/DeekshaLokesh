@@ -140,4 +140,4 @@ This project is developed for educational purposes and is not intended to replac
 
 ## 15. License
 
-The MIT License (MIT) 2023 - Parinitha Kiran and Deeksha Lokesh.
+The MIT License (MIT) 2023 - Deeksha Lokesh and Parinitha Kiran.
