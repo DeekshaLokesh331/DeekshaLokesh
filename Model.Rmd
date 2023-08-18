@@ -1,0 +1,1203 @@
+---
+title: "Breast Cancer - Final Project"
+author: "Deeksha Lokesh and Parinitha Kiran"
+date: "2023-08-18"
+output: html_document
+---
+```{r}
+# URL to the "DMwR" package version 0.4.1
+url1 = "https://cran.r-project.org/src/contrib/Archive/DMwR/DMwR_0.4.1.tar.gz"
+
+# Install the following R packages: "xts", "quantmod", "zoo", "abind", and "ROCR", these are the dependency packages #for DMwR
+install.packages(c("xts", "quantmod", "zoo", "abind", "ROCR"))
+
+# Install the "DMwR" package from the specified URL source
+install.packages(url1, type = "source", repos = NULL) 
+```
+**Load necessary packages**
+```{r}
+# Set the random seed for reproducibility
+set.seed(123)
+
+# Load necessary R packages
+library(ggplot2) # For creating plots
+library(viridis) # For color schemes
+library(cowplot) # For arranging multiple plots in a grid
+library(moments) # For skewness calculation
+library(tidyr) # For data cleaning and manipulation
+library(fastDummies) # For creating dummy variables
+library(caret) # For machine learning and data modeling
+library(lubridate) # For date Manupulations 
+library(DMwR) # balancing the data
+library(dplyr) # For data Handeling 
+library(magrittr) # to increase the readablity of the code
+
+
+library(randomForest) # For Random Forest
+library(party) # For Decission Tree
+library(e1071) # For Logistic Regression
+
+```
+
+**Data preprocessing for Diagnosis model**
+
+```{r}
+# Read the CSV file "breast-cancer.csv" and store it in the 'data_1' variable
+data_1 = read.csv("breast-cancer.csv")
+
+# Check the dimensions (number of rows and columns) of the 'data_1' data frame
+dim(data_1)
+```
+
+
+```{r}
+# Structure of the data
+#str(data_1)
+```
+
+```{r}
+# Calculate the number of missing values in each column of the dataset
+cat("Misssing values :\n")
+sapply(data_1, function(x) sum(is.na(x)))
+# Print the label and the count of missing values for each column
+
+cat("\n","==================================================================================================\n")
+
+# Print information about the dimensions of the dataset
+cat("\nDimension:")
+cat("\nNumber of rows:", dim(data_1)[1])
+cat("\nNumber of columns:", dim(data_1)[2])
+
+cat("\n","==================================================================================================\n")
+
+# Calculate and print the number of duplicated rows in the dataset
+cat("\nDuplicates:", sum(duplicated(data_1)))
+
+```
+```{r}
+# Convert the 'diagnosis' column of the dataset to a factor
+data_1$diagnosis = factor(data_1$diagnosis)
+
+# Remove columns 1 and 33 from the dataset using subset
+data_1 = subset(data_1, select = -c(1,33))
+
+# Calculate and print the number of duplicated rows in the modified dataset
+cat("Duplicates:", sum(duplicated(data_1)))
+
+```
+
+**Data prepocessing for Survival model**
+```{r}
+# Read the CSV file "BRCA.csv" into a data frame named 'data_2'
+data_2 = read.csv("BRCA.csv")
+
+# Display the dimensions (rows and columns) of the loaded data_2
+dim(data_2)
+```
+
+
+```{r}
+# subsetting the data_2 asa fe columns belong to the same category 
+data_2=data_2[,c(2,4,5,6,7,8,9,13,14,15,16)]
+```
+
+
+```{r}
+# Convert and factorize the 'Tumour_Stage' column
+data_2$Tumour_Stage = as.factor(data_2$Tumour_Stage)
+data_2$Tumour_Stage = droplevels(data_2$Tumour_Stage, exclude = "")
+
+# Convert and factorize the 'Histology' column
+data_2$Histology = as.factor(data_2$Histology)
+data_2$Histology = droplevels(data_2$Histology, exclude = "")
+
+# Convert and factorize the 'Surgery_type' column
+data_2$Surgery_type = as.factor(data_2$Surgery_type)
+data_2$Surgery_type = droplevels(data_2$Surgery_type, exclude = "")
+
+# Convert and factorize the 'Patient_Status' column
+data_2$Patient_Status = as.factor(data_2$Patient_Status)
+data_2$Patient_Status = droplevels(data_2$Patient_Status, exclude = "")
+
+# Display the structure of the modified data frame
+#str(data_2)
+
+```
+
+
+```{r}
+# Calculate and print the number of duplicates in the data frame
+cat("Duplicates: ", sum(duplicated(data_2)))
+
+# Calculate and print the total number of missing values in the data frame
+cat("\nMissing data: ", sum(is.na(data_2)))
+
+cat("\n", "==================================================================================================\n")
+
+# Calculate and print the number of missing values for each column using sapply
+sapply(data_2, function(x) sum(is.na(x)))
+
+```
+
+```{r}
+# Remove duplicate rows from the data frame
+data_2 = data_2[!duplicated(data_2),]
+
+# Remove rows with missing values from the data frame
+data_2 = drop_na(data_2)
+
+# Calculate and print the number of duplicates in the cleaned data frame
+cat("Duplicates: ", sum(duplicated(data_2)))
+
+# Calculate and print the total number of missing values in the cleaned data frame
+cat("\nMissing data_2: ", sum(is.na(data_2)))
+
+# Print a separator line
+cat("\n", "==================================================================================================\n")
+
+# Calculate and print the number of missing values for each column using sapply
+sapply(data_2, function(x) sum(is.na(x)))
+
+```
+
+```{r}
+# Generate and display a frequency table for the 'Tumour_Stage' variable
+table(data_2$Tumour_Stage)
+
+cat("\n", "==================================================================================================\n")
+
+# Generate and display a frequency table for the 'Histology' variable
+table(data_2$Histology)
+
+cat("\n", "==================================================================================================\n")
+
+# Generate and display a frequency table for the 'Surgery_type' variable
+table(data_2$Surgery_type)
+
+cat("\n", "==================================================================================================\n")
+
+# Generate and display a frequency table for the 'Patient_Status' variable
+table(data_2$Patient_Status)
+
+```
+
+
+```{r}
+# creating a new column called "diff_LV_sur", which has the diffrence b/w the last visit and day of surgery
+data_2$diff_LV_sur=as.numeric(dmy(data_2$Date_of_Last_Visit)-dmy(data_2$Date_of_Surgery))
+data_2=data_2[,-c(9,10)]
+```
+
+**Handling outliers**
+```{r}
+# Define custom colors for each category in the 'diagnosis' column
+custom_colors = c("#0e78d6", "#0a9a2a")
+
+# Function to visualize box plots and histograms for outlier detection
+outlier = function(data, col,value) {
+  # Box plot to show distribution of the 'col' variable with different colors for value groups
+  box2 = ggplot(data, aes(x = col, fill = value)) +
+    geom_boxplot() + scale_fill_manual(values = custom_colors)
+  
+  # Histogram to show the distribution of the 'col' variable with different colors for value groups
+  hist = ggplot(data, aes(x = col, fill = value)) +
+     scale_fill_manual(values = custom_colors)+
+    geom_histogram()
+  
+  # Display both box plot and histogram in a grid
+  plot_grid(box2, hist)
+}
+
+# Function to calculate outlier boundaries using IQR (Interquartile Range) method
+bounds = function(col, multiplier) {
+  q1 = as.numeric(quantile(col, 0.25))
+  q3 = as.numeric(quantile(col, 0.75))
+  IQR = as.numeric(q3 - q1)
+  
+  # Calculate lower and upper outlier boundaries using the IQR and the given multiplier
+  Lower = q1 - multiplier * IQR
+  Upper = q3 + multiplier * IQR
+  
+  # Return a vector containing lower and upper boundaries
+  return(c(Lower, Upper))
+}
+
+
+```
+
+**Diagnosis model: handling outliers for radius_mean**
+
+```{r}
+# Call the 'outlier' function to analyze outlier detection for the 'radius_mean' column in the 'data_1' dataset
+outlier(data_1, data_1$radius_mean,data_1$diagnosis)
+```
+
+```{r}
+ # Loop through columns 2 to 31 (skipping the first column which might be 'diagnosis')
+for (i in 2:31) {
+  # Calculate outlier boundaries using the 'bounds' function with a multiplier of 1.5
+  bound = bounds(data_1[, i], 1.5)
+  
+  # Extract lower and upper outlier boundaries
+  L = bound[1]
+  U = bound[2]
+  
+  # Replace outlier values in the current column with lower and upper bounds
+  data_1[, i][data_1[, i] < L] = L
+  data_1[, i][data_1[, i] > U] = U
+}
+
+```
+
+```{r}
+
+# Calculate the frequency of each category in the 'diagnosis' column and store it in a data frame
+diagnosis_freq = as.data.frame(table(data_1$diagnosis))
+
+# Create a bar plot using ggplot to visualize the frequency of each diagnosis category
+i1=ggplot(diagnosis_freq, aes(x = Var1, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity") +  # Create a bar plot with identity values
+  geom_text(aes(label = Freq), vjust = -0.3, size = 3) +  # Add text labels above the bars
+  scale_fill_manual(values = custom_colors) +  # Apply custom colors to the bars
+  labs(title = "Target Portions", x = "Diagnosis", y = "Count")
+
+```
+
+**Survival model handling outliers**
+```{r}
+#2,4,5,10
+outlier(data_2,data_2$diff_LV_sur,data_2$Patient_Status)
+```
+
+```{r}
+# Remove rows with missing values
+data_2 = drop_na(data_2)
+
+# Loop through the specified columns (2, 4, 5, and 10)
+for (i in c(2, 4, 5, 10)) {
+  # Calculate the outlier boundaries for the current column
+  bound = bounds(data_2[, i], 1.5)
+  L = bound[1]  # Lower bound
+  U = bound[2]  # Upper bound
+  
+  # Replace outlier values with their respective lower and upper bounds
+  data_2[, i][data_2[, i] < L] = L
+  data_2[, i][data_2[, i] > U] = U
+}
+
+```
+
+```{r}
+custom_colors <- c("#0e78d6", "#0a9a2a")
+i3=ggplot(data_2,aes(x=Patient_Status,fill=Patient_Status))+
+  scale_fill_manual(values = custom_colors) +
+  geom_bar()+
+  labs(title = "Target portions")
+```
+
+**Synthesysing the data for Diagnosis model**
+
+```{r}
+# Load the DMwR package
+library(DMwR)
+
+# Apply SMOTE (Synthetic Minority Over-sampling Technique) to balance the dataset
+synthesis_data_1 = SMOTE(diagnosis ~ ., data_1, perc.over = 70)
+
+# Combine the original data with the synthetic data
+data_1 = rbind(data_1[data_1[,"diagnosis"] == "B", ], synthesis_data_1[synthesis_data_1[,"diagnosis"] == "M", ])
+
+# Display the frequency distribution of the 'diagnosis' variable
+table(data_1$diagnosis)
+
+# Remove duplicate rows from the modified dataset
+data_1 = data_1[!duplicated(data_1), ]
+
+# Calculate and display the number of duplicated rows in the cleaned dataset
+cat("Duplicates:", sum(duplicated(data_1)))
+
+```
+```{r}
+# Calculate the frequency of each category in the 'diagnosis' column and store it in a data frame
+diagnosis_freq <- as.data.frame(table(data_1$diagnosis))
+
+# Define custom colors for each category in the 'diagnosis' column
+custom_colors <- c("#0e78d6", "#0a9a2a")
+
+# Create a bar plot using ggplot to visualize the frequency of each diagnosis category
+i2 <- ggplot(diagnosis_freq, aes(x = Var1, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity") +  # Create a bar plot with identity values
+  geom_text(aes(label = Freq), vjust = 0) +  # Add text labels on top of the bars
+  scale_fill_manual(values = custom_colors) +  # Apply custom colors to the bars
+  labs(title = "Target Portions", x = "Diagnosis", y = "Count")
+```
+
+```{r}
+# compare the plots before and after balancing 
+plot_grid(i1,i2)
+```
+
+```{r}
+i3=ggplot(data_2,aes(x=Patient_Status,fill=Patient_Status))+
+  scale_fill_manual(values = custom_colors) +
+  geom_bar()+
+  labs(title = "Target portions")
+```
+
+
+**Synthesysing the data for Survival model**
+```{r}
+# Generate a frequency table for the original 'Patient_Status' variable
+table(data_2$Patient_Status)
+
+# Perform SMOTE to oversample the minority class and create a synthetic balanced dataset data_2
+synthesis_data_2 = SMOTE(Patient_Status ~ ., data_2, perc.over = 300)
+
+# Combine the synthetic data_2 from the "Dead" class and the original data_2 from the "Alive" class
+data_2 = rbind(synthesis_data_2[synthesis_data_2[,"Patient_Status"] == "Dead",],
+             data_2[data_2[,"Patient_Status"] == "Alive",])
+
+# Generate a frequency table for the 'Patient_Status' variable after SMOTE
+table(data_2$Patient_Status)
+
+# Calculate and print the number of duplicates in the modified data_2
+cat("Duplicates: ", sum(duplicated(data_2)))
+
+```
+
+
+```{r}
+i4=ggplot(data_2,aes(x=Patient_Status,fill=Patient_Status))+
+  scale_fill_manual(values = custom_colors) +
+  geom_bar()+
+  labs(title = "Target portions")
+```
+```{r}
+#comparison plot
+plot_grid(i3,i4)
+```
+
+**Remove Highly co-related data**
+
+```{r}
+# Select only the numeric variables from the modified 'data_1' dataset
+numeric_vars_1 = data_1[, sapply(data_1, function(x) is.numeric(x))]
+
+# Calculate the correlation matrix for the numeric variables
+cor_matrix = cor(numeric_vars_1)
+
+# Define a threshold for high correlation
+threshold = 0.80
+
+# Set upper triangle of the correlation matrix to 0 (excluding diagonal)
+cor_matrix[upper.tri(cor_matrix)] = 0
+
+# Set diagonal elements of the correlation matrix to 0
+diag(cor_matrix) = 0
+
+# Remove highly correlated variables from 'numeric_vars_1' using the defined threshold
+data.un_corr = numeric_vars_1[, !apply(cor_matrix, 2, function(x) any(abs(x) > 0.99, na.rm = TRUE))]
+
+# Calculate the dimensions of the 'data.un_corr' dataset
+dim(data.un_corr)
+
+```
+
+**Scaling data_1**
+
+```{r,warning=FALSE}
+# Standardize the numeric variables in 'data.un_corr' using scale and store in 'cleaned_data_1'
+cleaned_data_1 = data.frame(scale(data.un_corr, scale = TRUE, center = TRUE))
+
+# Add the 'diagnosis' column from the original 'data_1' to 'cleaned_data_1'
+cleaned_data_1$diagnosis = data_1$diagnosis
+
+```
+
+```{r}
+# Shuffle the rows of the 'cleaned_data_1' data frame using a random sample,to introduce randomness in the data
+cleaned_data_1 = cleaned_data_1[sample(1:nrow(cleaned_data_1)), ]
+
+# Display the structure of the 'cleaned_data_1' data frame
+str(cleaned_data_1)
+```
+
+**Scaling data_2**
+
+```{r}
+# Select numeric variables from the data frame
+numeric_vars = data_2[, sapply(data_2, function(x) is.numeric(x))]
+
+# Scale the selected numeric variables
+scaled_numeric = scale(numeric_vars, scale = TRUE, center = TRUE)
+
+# Create a copy of the original data frame with scaled numeric variables
+scaled_data_2 = data_2
+scaled_data_2[, sapply(data_2, function(x) is.numeric(x))] = scaled_numeric
+
+# Display the first 5 rows of the scaled data_2
+head(scaled_data_2, 5)
+
+```
+
+```{r}
+# Perform one-hot encoding for specified columns and remove original columns
+cleaned_data_2 = dummy_cols(scaled_data_2, select_columns = c("Tumour_Stage", "Histology", "Surgery_type"))[, -c(6, 7, 8)]
+
+# Rename columns in the "cleaned_data_2" data frame using the %<>% operator
+cleaned_data_2 %<>% rename(
+  "HIDC" = "Histology_Infiltrating Ductal Carcinoma",
+  "HILC" = "Histology_Infiltrating Lobular Carcinoma",
+  "HMC" = "Histology_Mucinous Carcinoma",
+  "STL" = "Surgery_type_Lumpectomy",
+  "STMRM" = "Surgery_type_Modified Radical Mastectomy",
+  "other" = "Surgery_type_Other",
+  "STSM" = "Surgery_type_Simple Mastectomy"
+)
+
+```
+
+```{r}
+# Shuffle the rows of the "cleaned_data_2" data_2 frame
+cleaned_data_2 = cleaned_data_2[sample(1:nrow(cleaned_data_2)), ]
+
+# Display the structure of the shuffled "cleaned_data_2" data frame
+str(cleaned_data_2)
+
+```
+
+
+```{r}
+# Calculate the value counts of each tumor stage
+tumor_stage_counts <- table(scaled_data_2$Tumour_Stage)
+
+
+# Create a data frame for plotting
+plot_data_1 <- data.frame(
+  labels = names(tumor_stage_counts),
+  counts = tumor_stage_counts,
+  percentage <- tumor_stage_counts/sum(tumor_stage_counts) * 100
+)
+
+# Create a pie chart using ggplot2
+pie_chart <- ggplot(plot_data_1, aes(x = "", y = counts.Freq, fill = labels)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  labs(title = "Tumour stages of Patients") +
+  geom_text(aes(label = paste0(labels," - ", round(percentage, 1), "%")), position = position_stack(vjust = 0.5)) + 
+  scale_fill_viridis_d(option = "D",begin = 0.3, end = 0.8, direction = -1) +  # Use continuous viridis scale
+  theme_void() +
+  theme(legend.position = "right")
+
+# Show the pie chart
+print(pie_chart)
+```
+
+```{r}
+# Calculate the value counts of each histology
+histology_counts <- table(scaled_data_2$Histology)
+
+# Create a data_2 frame for plotting
+plot_data_2 <- data.frame(
+  labels = names(histology_counts),
+  counts = as.numeric(histology_counts),  # Convert to numeric
+  percentage = histology_counts / sum(histology_counts) * 100
+)
+
+# Create a pie chart using ggplot2
+pie_chart <- ggplot(plot_data_2, aes(x = "", y = counts, fill = labels)) +
+  geom_bar(stat = "identity") +
+  coord_polar(theta = "y") +
+  labs(title = "Histology of Patients") +
+  geom_text(aes(label = paste0(round(percentage, 1), "%")), 
+            position = position_nudge(x=0.8,y=0.4)) +
+  scale_fill_viridis_d(option = "D",begin = 0.3, end = 0.8, direction = -1)+
+  theme_void() +
+  theme(legend.position = "bottom")
+
+# Show the pie chart
+print(pie_chart)
+```
+
+```{r}
+# Calculate the value counts of each histology
+Surgery_type_counts <- table(scaled_data_2$Surgery_type)
+
+percentage = Surgery_type_counts / sum(Surgery_type_counts) * 100
+# Create a data_2 frame for plotting
+plot_data_3 <- data.frame(
+  labels = names(Surgery_type_counts),
+  counts = as.numeric(Surgery_type_counts),  # Convert to numeric
+  percentage = percentage
+)
+
+#  Create a bar plot using ggplot2
+bar_chart <- ggplot(plot_data_3, aes(x = labels, y = counts, fill = labels)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Type of Surgery of Patients", x = "Surgery Type", y = "Count") +
+  geom_text(aes(label = paste0(round(percentage, 1), "%")),
+            position = position_stack(vjust = 0.5)) +
+  scale_fill_viridis_d(option = "D", begin = 0.3, end = 0.8, direction = -1) +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
+
+# Show the bar plot
+print(bar_chart)
+```
+
+```{r}
+x <- seq(20, 105, by = 5)
+
+# Create a histogram using ggplot2
+histogram <- ggplot(data_2, aes(x = Age)) +
+  geom_histogram(binwidth = 4, fill = "#288884", color = "black") +
+  scale_x_continuous(breaks = x, labels = x) +
+  scale_y_continuous(breaks = seq(0, 60, by = 5)) +
+  labs(x = "Ages", y = "Count", title = "Breast Cancer by age group") +
+  theme_minimal()
+
+# Show the histogram
+print(histogram)
+```
+
+```{r}
+# Create a count plot using ggplot2
+count_plot <- ggplot(data_2, aes(x = Patient_Status, fill = Tumour_Stage)) +
+  geom_bar(position = "dodge") +
+  labs(x = "Patient Status", y = "Count", title = "Patient Status by Tumour Stage") +
+  scale_fill_viridis_d(option = "D", begin = 0.3, end = 0.8, direction = -1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Show the count plot
+print(count_plot)
+```
+
+```{r}
+# Create a count plot using ggplot2
+count_plot <- ggplot(data_2, aes(x = Patient_Status, fill = Surgery_type)) +
+  geom_bar(position = "dodge") +
+  labs(x = "Patient Status", y = "Count", title = "Patient Status by Surgery Type") +
+  scale_fill_viridis_d(option = "D", begin = 0.3, end = 0.8, direction = -1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Show the count plot
+print(count_plot)
+```
+
+**Diagnosis Model**
+
+```{r}
+set.seed(123)
+
+# Create data partition indices for splitting data into training and testing sets, with equal distribution of B and M
+indices_train_1 = createDataPartition(cleaned_data_1$diagnosis, p = 0.8, list = FALSE)
+
+# Create the training dataset using the indices obtained from data partition
+train_data_1 = cleaned_data_1[indices_train_1, ]
+
+# Create the testing dataset using the indices not included in the training set
+test_data_1 = cleaned_data_1[-indices_train_1, ]
+```
+
+```{r}
+# checking for category distribution between the train and test data , as it plays a key role in modeling
+
+"train :"
+table(train_data_1$diagnosis)
+
+"test :"
+table(test_data_1$diagnosis)
+```
+
+**Survival model**
+
+```{r}
+# Create data_2 partition indices for the "Patient_Status" column
+indices_train_2 = createDataPartition(cleaned_data_2$Patient_Status, p = 0.9, list = FALSE)
+
+# Split the "cleaned_data_2" data_2 frame into training and testing sets
+train_data_2 = cleaned_data_2[indices_train_2, ]
+test_data_2 = cleaned_data_2[-indices_train_2, ]
+
+```
+
+```{r}
+#checking the category division between the train and test 
+"train :"
+table(train_data_2$Patient_Status)
+"test :"
+table(test_data_2$Patient_Status)
+```
+
+**Metric**
+
+```{r}
+# Define a function to calculate the F1 score for binary classification
+class_f1 = function(y, yhat) {
+  # Create a confusion matrix using the true labels 'y' and the predicted labels 'yhat'
+  table = table(y, yhat)
+  
+  # Calculate precision: true positive / (true positive + false positive)
+  precision = diag(table) / colSums(table)
+  
+  # Calculate recall: true positive / (true positive + false negative)
+  recall = diag(table) / rowSums(table)
+  
+  # Calculate F1 score: 2 * (precision * recall) / (precision + recall)
+  f1 = 2 * precision * recall / (precision + recall)
+  
+  # Return the calculated F1 score
+  return(f1)
+}
+
+```
+
+
+**Random Forest**
+
+```{r}
+library(randomForest)  # Load the randomForest library
+
+# Define the number of folds for cross-validation
+n_k = 5
+# Function to perform k-fold cross-validation and calculate F1 scores
+perform_cross_validation <- function(train_data, response_col, formula, modelName) {
+  k = floor(nrow(train_data) / n_k)
+  index = 1:nrow(train_data)
+  f1_scores_1 = vector()
+  
+  for (i in 1:n_k) {
+    s_index = sample(index, k)
+    test_fold = train_data[s_index, ]
+    train_fold = train_data[-s_index, ]
+    
+    fit_model = randomForest(formula = formula, data = train_fold)
+    
+    yhat = predict(fit_model, test_fold[, -which(colnames(test_fold) == response_col)])
+    f1_scores_1[i] = mean(class_f1(test_fold[, response_col], yhat))
+    
+    index = setdiff(index, s_index)
+  }
+  
+  cat("F1 Scores in each fold for ",modelName,"\n")
+  print(f1_scores_1)
+  cat("Overall mean F1 score: ",modelName,"\n")
+  print(mean(f1_scores_1, na.rm = TRUE))
+  return(f1_scores_1)
+}
+
+# Call the cross-validation function for train_data_1
+f1_scores_1_1<-perform_cross_validation(train_data_1, "diagnosis", diagnosis ~ .,"Diagnosis Random Forest model")
+
+# Call the cross-validation function for train_data_2
+f1_scores_1_2<-perform_cross_validation(train_data_2, "Patient_Status", Patient_Status ~ .,"Survival Random Forest model")
+
+```
+
+**Logistic Regression**
+
+```{r,warning=FALSE}
+
+# Define a function for k-fold cross-validation and F1 score calculation
+perform_cross_validation <- function(train_data, response_col, formula, class_labels, modelName, n_k = 5) {
+  k = floor(nrow(train_data) / n_k)
+  index = 1:nrow(train_data)
+  f1_scores_2 = vector()
+  
+  for (i in 1:n_k) {
+    s_index = sample(index, k)
+    test_fold = train_data[s_index, ]
+    train_fold = train_data[-s_index, ]
+    
+    fit_model = glm(formula = formula, data = train_fold, family = "binomial")
+    
+    yhat = ifelse(predict(fit_model, test_fold[, -which(colnames(test_fold) == response_col)]) > 0.5, class_labels[2], class_labels[1])
+    
+    f1_scores_2[i] = mean(class_f1(test_fold[, response_col], yhat))
+    
+    index = setdiff(index, s_index)
+  }
+  
+  cat("F1 Scores in each fold for ", modelName, ":\n")
+  print(f1_scores_2)
+  cat("Overall mean F1 score for ", modelName, ":\n")
+  print(mean(f1_scores_2, na.rm = TRUE))
+  return(f1_scores_2)
+}
+
+# Call the cross-validation function for train_data_1
+f1_scores_2_1<-perform_cross_validation(train_data_1, "diagnosis", diagnosis ~ ., class_labels = c("M", "B"), modelName = "Diagnosis Logistic model")
+
+# Call the cross-validation function for train_data_2
+f1_scores_2_2<-perform_cross_validation(train_data_2, "Patient_Status", Patient_Status ~ ., class_labels = c("Dead", "Alive"), modelName = "Survival Logistic model")
+```
+
+**SVM**
+
+```{r}
+# Define a function for k-fold cross-validation and F1 score calculation
+perform_cross_validation_svm <- function(train_data, response_col, formula, class_labels, modelName, n_k = 5) {
+  k = floor(nrow(train_data) / n_k)
+  index = 1:nrow(train_data)
+  f1_scores_3 = vector()
+  for (i in 1:n_k) {
+    s_index = sample(index, k)
+    test_fold = train_data[s_index, ]
+    train_fold = train_data[-s_index, ]
+    
+    fit_model = svm(formula = formula, data = train_fold)
+    
+    yhat = predict(fit_model, test_fold[, -which(colnames(test_fold) == response_col)])
+    
+    f1_scores_3[i] = mean(class_f1(test_fold[, response_col], yhat))
+    
+    index = setdiff(index, s_index)
+  }
+  
+  cat("F1 Scores in each fold for ", modelName, ":\n")
+  print(f1_scores_3)
+  cat("Overall mean F1 score for ", modelName, ":\n")
+  print(mean(f1_scores_3, na.rm = TRUE))
+  return(f1_scores_3)
+}
+
+# Call the cross-validation function for train_data_1 using SVM
+f1_scores_3_1<-perform_cross_validation_svm(train_data_1, "diagnosis", diagnosis ~ ., class_labels = c("M", "B"), modelName = "Diagnosis SVM model")
+
+# Call the cross-validation function for train_data_2 using SVM
+f1_scores_3_2<-perform_cross_validation_svm(train_data_2, "Patient_Status", Patient_Status ~ ., class_labels = c("Dead", "Alive"), modelName = "Survival SVM model")
+```
+**DC**
+
+```{r,warning=FALSE}
+
+# Define a function for k-fold cross-validation and F1 score calculation
+perform_cross_validation_ctree <- function(train_data, response_col, formula, class_labels, modelName, n_k = 5) {
+  k = floor(nrow(train_data) / n_k)
+  index = 1:nrow(train_data)
+  f1_scores_4 = vector()
+  
+  for (i in 1:n_k) {
+    s_index = sample(index, k)
+    test_fold = train_data[s_index, ]
+    train_fold = train_data[-s_index, ]
+    
+    fit_model = ctree(formula = formula, data = train_fold)
+    
+    yhat = predict(fit_model, test_fold[, -which(colnames(test_fold) == response_col)])
+    
+    f1_scores_4[i] = mean(class_f1(test_fold[, response_col], yhat))
+    
+    index = setdiff(index, s_index)
+  }
+  
+  cat("F1 Scores in each fold for ", modelName, ":\n")
+  print(f1_scores_4)
+  cat("Overall mean F1 score for ", modelName, ":\n")
+  print(mean(f1_scores_4, na.rm = TRUE))
+  return(f1_scores_4)
+}
+
+# Call the cross-validation function for train_data_1 using ctree
+f1_scores_4_1<-perform_cross_validation_ctree(train_data_1, "diagnosis", diagnosis ~ ., class_labels = c("M", "B"), modelName = "Diagnosis ctree model")
+
+# Call the cross-validation function for train_data_2 using ctree
+f1_scores_4_2<-perform_cross_validation_ctree(train_data_2, "Patient_Status", Patient_Status ~ ., class_labels = c("Dead", "Alive"), modelName = "Survival ctree model")
+
+```
+
+```{r}
+# Create a data frame 'f1_compare' for comparing F1 scores between models
+f1_compare <- data.frame(
+  random_forest = f1_scores_1_1,
+  Logistic_regression = f1_scores_2_1,
+  SVM = f1_scores_3_1,
+  Decision_tree = f1_scores_4_1
+)
+
+f1_compare_2 <- data.frame(
+  random_forest = f1_scores_1_2,
+  Logistic_regression = f1_scores_2_2,
+  SVM = f1_scores_3_2,
+  Decision_tree = f1_scores_4_2
+)
+
+create_f1_comparison_plot <- function(f1_compare, modelName) {
+  ggplot(f1_compare, aes(x = c(1:5))) +
+    geom_line(aes(y = random_forest, color = "Random Forest")) +
+    geom_point(aes(y = random_forest, color = "Random Forest"), shape = 19) +
+    geom_line(aes(y = SVM, color = "Support Vector Machine")) +
+    geom_point(aes(y = SVM, color = "Support Vector Machine"), shape = 19) +
+    geom_line(aes(y = Decision_tree, color = "Decision Tree")) +
+    geom_point(aes(y = Decision_tree, color = "Decision Tree"), shape = 19) +
+    labs(x = "Fold", y = "F1 Score", title = paste0("Comparison of F1 Scores for ",modelName)) +
+    scale_color_manual(
+      values = c(
+        "Random Forest" = "blue",
+        "Support Vector Machine" = "red",
+        "Decision Tree" = "orange"
+      )
+    )
+}
+
+# Example usage:
+# Call the function to create the plot
+create_f1_comparison_plot(f1_compare,"Diagnosis model")
+create_f1_comparison_plot(f1_compare_2,"Survival model")
+
+```
+
+**Final Model Tuning for Diagnosis model**
+
+```{r}
+# Define the hyperparameter grid for SVM, this grid was choosen based on various trial and error method
+tuneGrid1 = expand.grid(
+  cost = c(1, 10, 100),
+  kernel = c("linear", "poly", "radial", "sigmoid"),
+  degree = c(1, 2, 3),
+  gamma = c(0.1, 1, 10)
+)
+# creating a column with zero's in the tune grid
+tuneGrid1$F1_scores = 0
+
+# Loop through each combination of hyperparameters
+for (i in 1:dim(tuneGrid1)[1]) {
+  # Define the number of folds for cross-validation
+  n_k = 5
+  
+  # Calculate the number of samples in each fold
+  k = floor(nrow(train_data_1) / n_k)
+  
+  # Create an index vector for the dataset rows
+  index = 1:nrow(train_data_1)
+  
+  # Create an empty vector to store F1 scores for each fold
+  f1_scores = vector()
+  
+  # Loop through each fold
+  for (j in 1:n_k) {
+    # Randomly sample 'k' indices for the current fold
+    s_index = sample(index, k)
+    
+    # Create the test and training folds based on the sampled indices
+    test_fold = train_data_1[s_index, ]
+    train_fold = train_data_1[-s_index, ]
+    
+    # Fit an SVM model on the training fold with the selected hyperparameters
+    SVMC = svm(
+      formula = diagnosis ~ ., 
+      data = train_fold, 
+      cost = tuneGrid1[i, 1], 
+      kernel = tuneGrid1[i, 2], 
+      degree = tuneGrid1[i, 3],
+      gamma = tuneGrid1[i, 4]
+    )
+    
+    # Make predictions on the test fold using the fitted SVM model
+    yhat = predict(SVMC, test_fold[, -28]) 
+    
+    # Calculate the F1 score for the current fold and store it
+    f1_scores[j] = mean(class_f1(test_fold[, 28], yhat))
+    
+    # Update the index vector by removing the sampled indices
+    index = setdiff(index, s_index)
+  }
+  
+  # Calculate the mean F1 score across all folds for the current hyperparameter combination
+  tuneGrid1[i, "F1_scores"] = mean(f1_scores, na.rm = TRUE)
+}
+
+```
+
+
+```{r}
+# Find the row index with the highest F1 score
+best_index = which.max(tuneGrid1$F1_scores)
+
+# Extract the corresponding hyperparameter combination (row) from tuneGrid1
+best_params = tuneGrid1[best_index, ]
+print(best_params)
+```
+
+
+
+```{r}
+# Train an SVM model using the best hyperparameters
+model_BM=svm(formula=diagnosis ~., data = train_data_1,cost=best_params[1,1],kernel=best_params[1,2],degree=best_params[1,3],
+          gamma=best_params[1,4])
+# Print the model
+model_BM
+```
+
+**Model Diagnosis Prediction **
+```{r}
+# Make predictions using the trained SVM model
+predict = predict(model_BM, test_data_1[, -28])
+
+# Extract the actual labels from the test data
+actual = test_data_1[, 28]
+
+```
+
+```{r}
+predict = predict(model_BM,test_data_1[,-c(28)])
+actual=test_data_1[,28]
+
+# Calculate the counts of actual and predicted patient statuses
+actual_counts <- table(actual)
+predicted_counts <- table(predict)
+
+p1=ggplot(as.data.frame(table(predict)),aes(x=predict,y=Freq,fill=predict))+
+  scale_fill_manual(values = custom_colors) +
+  geom_bar(stat = "identity")+geom_text(aes(label = Freq), vjust = 0)+
+  labs(title = "Predicted",x="Diagnosis",y="count")
+
+
+p2=ggplot(as.data.frame(table(actual)),aes(x=actual,y=Freq,fill=actual))+
+  scale_fill_manual(values = custom_colors) +
+  geom_bar(stat = "identity")+geom_text(aes(label = Freq), vjust = 0)+
+  labs(title = "Actual",x="Diagnosis",y="count")
+
+plot_grid(p1,p2)
+```
+
+
+```{r}
+confusionMatrix(predict,actual,mode = "everything")
+```
+**Final Model Tune for Survival Model**
+
+```{r}
+# Create a grid of hyperparameters to tune
+tuneGrid = expand.grid(mtry = c(2, 4, 6), ntree = (1:10) * 60, nodesize = c(1, 5, 10))
+tuneGrid$F1_scores = 0  # Initialize a column to store F1 scores
+
+# Loop through each combination of hyperparameters
+for (i in 1:dim(tuneGrid)[1]) {
+  # Define the number of folds and calculate the size of each fold
+  n_k = 5
+  k = floor(nrow(train_data_2) / n_k)
+  
+  index = 1:nrow(train_data_2)  # Initialize index
+  
+  f1_scores = vector()  # Initialize a vector to store F1 scores
+  
+  # Loop through each fold
+  for (j in 1:n_k) {
+    s_index = sample(index, k)
+    test_fold = train_data_2[s_index, ]
+    train_fold = train_data_2[-s_index, ]
+    
+    # Fit a randomForest model on the train fold with the current hyperparameters
+    rf_model = randomForest(formula = Patient_Status ~ ., data = train_fold,
+                            mtry = tuneGrid[i, 1], ntree = tuneGrid[i, 2],
+                            nodesize = tuneGrid[i, 3])
+    
+    # Make predictions on the test fold using the model
+    yhat = predict(rf_model, test_fold[, -6]) 
+    
+    # Calculate and store the F1 score for the current fold
+    f1_scores[j] = mean(class_f1(test_fold[, 6], yhat))
+    
+    index = setdiff(index, s_index)  # Remove the indices of the current fold
+  }
+  
+  # Calculate the mean F1 score for the current hyperparameter combination
+  tuneGrid[i, "F1_scores"] = mean(f1_scores, na.rm = TRUE)
+}
+
+```
+
+
+```{r}
+# Find the best set of hyperparameters that yielded the highest mean F1 score
+best_params = tuneGrid[which.max(tuneGrid$F1_scores), ]
+best_params
+```
+
+
+
+```{r}
+# Train an Random forest model using the best hyperparameters
+mode_survival=randomForest(formula=Patient_Status ~.,data=train_data_2,mtry=best_params[1,1],ntree=best_params[1,2],nodesize=best_params[1,3])
+mode_survival
+```
+
+**Model Survival Prediction **
+```{r}
+# Make predictions using the trained Random Forest model
+predict = predict(mode_survival,test_data_2[,-c(6)])
+# Extract the actual labels from the test data_2
+actual=test_data_2[,6]
+```
+
+```{r}
+predict = predict(mode_survival,test_data_2[,-c(6)])
+actual=test_data_2[,6]
+
+# Calculate the counts of actual and predicted patient statuses
+actual_counts <- table(actual)
+predicted_counts <- table(predict)
+
+# Create a data_2 frame for plotting
+plot_data_2 <- data.frame(
+  Status = rep(c("Actual", "Predicted"), each = length(names(actual_counts))),
+  Type = rep(names(actual_counts), times = 2),
+  Count = c(actual_counts, predicted_counts)
+)
+
+# Create the side-by-side bar plot using ggplot2
+bar_plot <- ggplot(plot_data_2, aes(x = Type, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5, size = 3.5) +  # Add count labels
+  labs(title = "Count of Actual and Predicted by Patient Status", x = "Patient Status", y = "Count") +
+  scale_fill_manual(values = c("Actual" = "#0e78d6", "Predicted" = "#0a9a2a")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
+
+# Show the side-by-side bar plot
+print(bar_plot)
+```
+
+
+```{r}
+confusionMatrix(predict,actual,mode = "everything")
+```
+
+**Prediction Sample**
+
+```{r}
+model1_par=function(vec1){
+  numeric = vec1[,sapply(vec1, function(x) is.numeric(x))]
+mean=list(sapply(data.un_corr, function(x) mean(x)))
+sd=list(sapply(data.un_corr, function(x) sd(x)))
+
+new_vec_1=((numeric-mean)/sd)[1,]
+return(new_vec_1)
+}
+
+model2_par=function(vec){
+  numeric = vec[,sapply(vec, function(x) is.numeric(x))]
+mean=list(sapply(numeric_vars, function(x) mean(x)))
+sd=list(sapply(numeric_vars, function(x) sd(x)))
+
+scaled_num_vec=((numeric-mean)/sd)[1,]
+
+cat = vec[,sapply(vec, function(x) is.character(x))]
+
+if(cat$Tumour_Stage=="I"){
+  cat$Tumour_Stage_I=1
+  cat$Tumour_Stage_II=0
+  cat$Tumour_Stage_III=0
+}else if(cat$Tumour_Stage=="II"){
+  cat$Tumour_Stage_I=0
+  cat$Tumour_Stage_II=1
+  cat$Tumour_Stage_III=0
+}else{
+  cat$Tumour_Stage_I=0
+  cat$Tumour_Stage_II=0
+  cat$Tumour_Stage_III=1
+}
+
+
+if(cat$Histology=="Infiltrating Ductal Carcinoma"){
+  cat$HIDC=1
+  cat$HILC=0
+  cat$HMC=0
+}else if(cat$Histology=="Infiltrating Lobular Carcinoma"){
+  cat$HIDC=0
+  cat$HILC=1
+  cat$HMC=0
+}else{
+  cat$HIDC=0
+  cat$HILC=0
+  cat$HMC=1
+}
+
+if(cat$Surgery_type=="Lumpectomy"){
+  cat$STL=1
+  cat$STMRM=0
+  cat$other=0
+  cat$STSM=0
+}else if(cat$Surgery_type=="Modified Radical Mastectomy"){
+  cat$STL=0
+  cat$STMRM=1
+  cat$other=0
+  cat$STSM=0
+}else if(cat$Surgery_type=="Other"){
+  cat$STL=0
+  cat$STMRM=0
+  cat$other=1
+  cat$STSM=0
+  }else{
+  cat$STL=0
+  cat$STMRM=0
+  cat$other=0
+  cat$STSM=1
+}
+
+new_vec= cbind(scaled_num_vec,cat[,-c(1,2,3)])
+return(new_vec)
+}
+```
+
+
+```{r}
+#input 1
+vec1=data.frame(
+texture_mean=14.360,
+area_mean=566.3,
+smoothness_mean=0.09779,
+compactness_mean=0.08129,
+concavity_mean=0.0666400,
+concave.points_mean=0.047810,
+symmetry_mean=0.1885,
+fractal_dimension_mean=0.05766,
+radius_se=0.26990,
+texture_se=0.78860,
+perimeter_se=2.0580,
+area_se=23.560,
+smoothness_se=0.0084620,
+compactness_se=0.014600,
+concavity_se=0.0238700,
+concave.points_se=0.013150,
+symmetry_se=0.019800,
+fractal_dimension_se=0.0023000,
+texture_worst=19.26,
+perimeter_worst=99.70,
+area_worst=711.2,
+smoothness_worst=0.14400,
+compactness_worst=0.17730,
+concavity_worst=0.239000,
+concave.points_worst=0.128800,
+symmetry_worst=0.29770,
+fractal_dimension_worst=0.07259)
+
+new_vec_1=model1_par(vec1)
+pred1=predict(model_BM,new_vec_1)
+
+if(pred1=="M"){
+  print("The tumor is of type `Malignant`, which is needs further analysis.")
+  
+  # New set of inputs of the same patient , id Diagnosed with "M" only
+  vec=data.frame(Age=43.00000,	Protein1=-0.420320000,Protein2=0.578070000,	Protein3=0.61447000,	Protein4=-0.031505000,	Tumour_Stage="II",Histology="Mucinous Carcinoma",Surgery_type="Lumpectomy",diff_LV_sur=562.00000)
+  
+  new_vec=model2_par(vec)
+  pred2=predict(mode_survival,new_vec)
+
+  if(pred2=="Alive"){
+      print("There are high Chances of the person being `Alive` post the surgery ")
+  }else{
+      print("There are high Chances of the person going to be `Dead` post the surgery ")
+  }
+
+}else{
+  print("The tumor is of type Benign, which is just a lump which can be operated")
+}
+```
+
+
+
